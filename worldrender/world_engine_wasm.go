@@ -22,8 +22,12 @@ func openWorldEngine(path string) (worldEngine, error) {
 func (engine *wasmWorldEngine) Close() error { return nil }
 
 func (engine *wasmWorldEngine) Analyze(samples []float64, sampleRate int, inputF0 []float64) (worldFeatures, error) {
+	return engine.AnalyzeWith(samples, sampleRate, inputF0, worldFramePeriodMS, unitD4CThreshold)
+}
+
+func (engine *wasmWorldEngine) AnalyzeWith(samples []float64, sampleRate int, inputF0 []float64, frameMS, d4cThreshold float64) (worldFeatures, error) {
 	api := js.Global().Get("utauttsWorld")
-	result, ok := callWorld(api, "analyze", float64SliceToJS(samples), sampleRate, float64SliceToJS(inputF0))
+	result, ok := callWorld(api, "analyze", float64SliceToJS(samples), sampleRate, float64SliceToJS(inputF0), frameMS, d4cThreshold)
 	if !ok {
 		return worldFeatures{}, errors.New("WORLD analyze call failed")
 	}
@@ -34,11 +38,12 @@ func (engine *wasmWorldEngine) Analyze(samples []float64, sampleRate int, inputF
 	fftSize := result.Get("fftSize").Int()
 	bins := fftSize/2 + 1
 	return worldFeatures{
-		Frames:       frames,
-		FFTSize:      fftSize,
-		F0:           float64SliceFromJS(result.Get("f0"), frames),
-		Spectrum:     float64SliceFromJS(result.Get("spectrum"), frames*bins),
-		Aperiodicity: float64SliceFromJS(result.Get("aperiodicity"), frames*bins),
+		Frames:        frames,
+		FFTSize:       fftSize,
+		FramePeriodMS: frameMS,
+		F0:            float64SliceFromJS(result.Get("f0"), frames),
+		Spectrum:      float64SliceFromJS(result.Get("spectrum"), frames*bins),
+		Aperiodicity:  float64SliceFromJS(result.Get("aperiodicity"), frames*bins),
 	}, nil
 }
 
@@ -46,7 +51,7 @@ func (engine *wasmWorldEngine) Synthesize(features worldFeatures, sampleRate int
 	api := js.Global().Get("utauttsWorld")
 	result, ok := callWorld(api, "synthesize",
 		float64SliceToJS(features.F0), float64SliceToJS(features.Spectrum),
-		float64SliceToJS(features.Aperiodicity), features.Frames, features.FFTSize, sampleRate)
+		float64SliceToJS(features.Aperiodicity), features.Frames, features.FFTSize, sampleRate, features.periodMS())
 	if !ok {
 		return nil, errors.New("WORLD synthesize call failed")
 	}
