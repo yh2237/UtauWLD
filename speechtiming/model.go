@@ -82,10 +82,16 @@ func readSafeTensors(data []byte) (map[string]tensor, map[string]string, error) 
 		}
 		count := 1
 		for _, dim := range entry.Shape {
+			if dim <= 0 || count > math.MaxInt/dim {
+				return nil, nil, fmt.Errorf("safetensors %s: invalid shape %v", name, entry.Shape)
+			}
 			count *= dim
 		}
+		if count > math.MaxInt/4 {
+			return nil, nil, fmt.Errorf("safetensors %s: shape overflow", name)
+		}
 		start, end := entry.Offsets[0], entry.Offsets[1]
-		if start < 0 || end < start || end > int64(len(body)) || end-start != int64(count*4) {
+		if start < 0 || end < start || end > int64(len(body)) || end-start != int64(count)*4 {
 			return nil, nil, fmt.Errorf("safetensors %s: bad offsets", name)
 		}
 		values := make([]float32, count)

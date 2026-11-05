@@ -45,6 +45,9 @@ func Warp(model Predictor, timeline Timeline, input Features, strength float64) 
 	if frames < 2 || len(input.F0) != frames || len(input.Spectrum) != frames*bins || len(input.Aperiodicity) != frames*bins {
 		return Features{}, fmt.Errorf("speech timing: inconsistent features")
 	}
+	if math.IsNaN(strength) || math.IsInf(strength, 0) {
+		return Features{}, fmt.Errorf("speech timing: invalid strength %v", strength)
+	}
 	if strength <= 0 || len(timeline.Spans) == 0 {
 		return input, nil
 	}
