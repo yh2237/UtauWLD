@@ -48,6 +48,9 @@ func (engine *wasmWorldEngine) AnalyzeWith(samples []float64, sampleRate int, in
 }
 
 func (engine *wasmWorldEngine) Synthesize(features worldFeatures, sampleRate int) ([]float64, error) {
+	if err := validateWorldSynthesis(features, sampleRate); err != nil {
+		return nil, err
+	}
 	api := js.Global().Get("utauttsWorld")
 	result, ok := callWorld(api, "synthesize",
 		float64SliceToJS(features.F0), float64SliceToJS(features.Spectrum),

@@ -1,6 +1,10 @@
 package worldrender
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"math"
+)
 
 // WorldStreamは、区切って足したパラメータを、区切りでもつながった波形にする（WORLDの逐次合成）。
 type WorldStream struct {
@@ -27,6 +31,13 @@ var errWorldStreamUnavailable = errors.New("WORLD streaming synthesis is unavail
 
 // OpenStreamは逐次合成を始める。bufferSizeサンプルずつ取り出す。
 func (w *World) OpenStream(sampleRate int, frameMS float64, fftSize, bufferSize int) (*WorldStream, error) {
+	if sampleRate <= 0 || sampleRate > maxWorldInt32 || fftSize <= 0 || fftSize > maxWorldInt32 ||
+		bufferSize <= 0 || bufferSize > maxWorldInt32 {
+		return nil, fmt.Errorf("invalid WORLD stream shape: rate=%d fft=%d buffer=%d", sampleRate, fftSize, bufferSize)
+	}
+	if math.IsNaN(frameMS) || math.IsInf(frameMS, 0) || frameMS <= 0 {
+		return nil, fmt.Errorf("invalid WORLD stream frame period: %v", frameMS)
+	}
 	streamer, ok := w.engine.(worldStreamer)
 	if !ok {
 		return nil, errWorldStreamUnavailable
@@ -61,6 +72,15 @@ func (s *WorldStream) Close() { s.stream.close() }
 
 // F0はHarvestのF0だけを求める。Analyzeよりスペクトルの分だけ速い。
 func (w *World) F0(samples []float64, sampleRate int, frameMS float64) ([]float64, error) {
+	if sampleRate <= 0 || sampleRate > maxWorldInt32 {
+		return nil, fmt.Errorf("WORLD sample rate is out of range: %d", sampleRate)
+	}
+	if len(samples) > maxWorldInt32 {
+		return nil, fmt.Errorf("WORLD sample count is out of range: %d", len(samples))
+	}
+	if math.IsNaN(frameMS) || math.IsInf(frameMS, 0) || frameMS <= 0 {
+		return nil, fmt.Errorf("WORLD frame period must be positive and finite: %v", frameMS)
+	}
 	analyzer, ok := w.engine.(worldF0Analyzer)
 	if !ok {
 		f0, _, _, _, err := w.Analyze(samples, sampleRate, frameMS, 0)

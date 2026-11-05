@@ -141,6 +141,9 @@ func (p *worldPhrasePipeline) warp() error {
 }
 
 func (p *worldPhrasePipeline) synthesize() error {
+	if err := validateWorldSynthesis(p.features, p.input.SampleRate); err != nil {
+		return err
+	}
 	wave, err := p.engine.Synthesize(p.features, p.input.SampleRate)
 	if err != nil {
 		return err
@@ -213,7 +216,7 @@ func prepareWorldUnits(ctx context.Context, engine worldEngine, input phraseInpu
 	for index, item := range input.Units {
 		key := item.CacheKey
 		if key == "" {
-			key = fmt.Sprintf("%s|%.4f|%.4f", item.Source, item.OffsetMS, item.CutoffMS)
+			key = fmt.Sprintf("%s|%.4f|%.4f|%s", item.Source, item.OffsetMS, item.CutoffMS, item.FRQPath)
 		}
 		entry, found := cache.get(key)
 		if found {
@@ -466,6 +469,12 @@ func parallelWorldWork(tasks, workers int, work func(int)) {
 
 func analyzeWorldUnit(engine worldEngine, item Unit, samples []float64, sampleRate int) (worldFeatures, float64, error) {
 	hopSize := int(math.Round(worldFramePeriodMS * float64(sampleRate) / 1000))
+	if hopSize <= 0 {
+		return worldFeatures{}, 0, fmt.Errorf("WORLD unit sample rate %d is too low", sampleRate)
+	}
+	if len(samples) > maxWorldInt32 {
+		return worldFeatures{}, 0, fmt.Errorf("WORLD unit sample count is out of range: %d", len(samples))
+	}
 	fullFrames := len(samples)/hopSize + 1
 	startFrame := max(0, int(item.OffsetMS/worldFramePeriodMS))
 	endMS := SourceEndMS(float64(len(samples))*1000/float64(sampleRate), item.OffsetMS, item.CutoffMS)

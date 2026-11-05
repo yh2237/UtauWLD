@@ -20,6 +20,14 @@ type windowsWorldProcs struct {
 var windowsWorldExtras = map[*syscall.DLL]*windowsWorldProcs{}
 var windowsWorldExtrasMu sync.Mutex
 
+// forgetWorldExtrasは解放したDLLの手続き表を残さない。DLLオブジェクトの
+// アドレスが再利用されたときに古い手続きを引かないようにする。
+func forgetWorldExtras(dll *syscall.DLL) {
+	windowsWorldExtrasMu.Lock()
+	delete(windowsWorldExtras, dll)
+	windowsWorldExtrasMu.Unlock()
+}
+
 func (engine *windowsWorldEngine) extras() *windowsWorldProcs {
 	windowsWorldExtrasMu.Lock()
 	procs := windowsWorldExtras[engine.dll]

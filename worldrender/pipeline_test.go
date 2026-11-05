@@ -96,3 +96,25 @@ func TestWorldPhrasePipelineStopsWhenCanceled(t *testing.T) {
 		t.Fatalf("canceled render still ran WORLD: analyze=%d synth=%d", engine.analyzeCalls, engine.synthCalls)
 	}
 }
+
+func TestWorldPhrasePipelineRejectsTooLowSampleRate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "low.wav")
+	if err := writePCM16(path, 1, []float32{0, .1, -.1, 0}); err != nil {
+		t.Fatal(err)
+	}
+	engine := &fakeWorldEngine{}
+	input := phraseInput{
+		SampleRate: 1,
+		F0Curve:    []float64{200, 200, 200, 200},
+		Units: []Unit{{
+			Source: path, PositionMS: 0, LengthMS: 40, RequiredLengthMS: 40,
+			Volume: 100, VolumeSet: true,
+		}},
+	}
+	if _, err := renderUtauTTSWorldPhrase(context.Background(), engine, input, newWorldFeatureCache(4)); err == nil {
+		t.Fatal("1 Hz unit was accepted")
+	}
+	if engine.analyzeCalls != 0 {
+		t.Fatalf("analyze calls = %d, want 0", engine.analyzeCalls)
+	}
+}

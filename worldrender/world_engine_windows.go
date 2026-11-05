@@ -80,7 +80,10 @@ func openWorldEngine(path string) (worldEngine, error) {
 	return &windowsWorldEngine{dll: dll, shape: shape, analyze: analyze, analyzeD4C: analyzeD4C, synthesize: synthesize}, nil
 }
 
-func (engine *windowsWorldEngine) Close() error { return engine.dll.Release() }
+func (engine *windowsWorldEngine) Close() error {
+	forgetWorldExtras(engine.dll)
+	return engine.dll.Release()
+}
 
 func worldError(buffer []byte) string {
 	for index, value := range buffer {
